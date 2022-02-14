@@ -68,7 +68,8 @@ void PutVarint64(std::string* dst, uint64_t v) {
   char* ptr = EncodeVarint64(buf, v);
   dst->append(buf, ptr - buf);
 }
-
+// length prefixed : 也就是把length放在字符串的前面，数据放后面
+// std::string 格式： | encoded_str_size | str_value |
 void PutLengthPrefixedSlice(std::string* dst, const Slice& value) {
   PutVarint32(dst, value.size());
   dst->append(value.data(), value.size());

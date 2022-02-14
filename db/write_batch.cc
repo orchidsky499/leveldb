@@ -79,6 +79,8 @@ Status WriteBatch::Iterate(Handler* handler) const {
   }
 }
 
+// string::rep_格式   | sequece(64b) | count (32b)| data[] | 
+// 要得到count，就是得到第64位的首地址，一个string字符 8B， data() + 8 就是挪到了第64位
 int WriteBatchInternal::Count(const WriteBatch* b) {
   return DecodeFixed32(b->rep_.data() + 8);
 }
@@ -95,6 +97,7 @@ void WriteBatchInternal::SetSequence(WriteBatch* b, SequenceNumber seq) {
   EncodeFixed64(&b->rep_[0], seq);
 }
 
+// std::string::rep_ 格式 | encoded_key_size | key_str | encoded_value_size | value_str |
 void WriteBatch::Put(const Slice& key, const Slice& value) {
   WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);
   rep_.push_back(static_cast<char>(kTypeValue));

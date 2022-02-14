@@ -28,11 +28,14 @@ void FilterBlockBuilder::StartBlock(uint64_t block_offset) {
 
 void FilterBlockBuilder::AddKey(const Slice& key) {
   Slice k = key;
-  start_.push_back(keys_.size());
+  // 注意，这里push的是 keys_ 的size，而不是 key的size
+  start_.push_back(keys_.size()); 
+  // 这里是先push size，再append keys_的size。 等到GenerateFilter时再push一次 keys_ 的size
   keys_.append(k.data(), k.size());
 }
 
 Slice FilterBlockBuilder::Finish() {
+  // 如果还有add的数据，那么再次创建过滤器
   if (!start_.empty()) {
     GenerateFilter();
   }
@@ -48,6 +51,9 @@ Slice FilterBlockBuilder::Finish() {
   return Slice(result_);
 }
 
+/*
+  主要更新 results_ 和 filter_offsets_
+ */
 void FilterBlockBuilder::GenerateFilter() {
   const size_t num_keys = start_.size();
   if (num_keys == 0) {
@@ -66,6 +72,14 @@ void FilterBlockBuilder::GenerateFilter() {
   }
 
   // Generate filter for current set of keys and append to result_.
+  /*
+    这里filter_offsets_和result_是配合使用的
+      先pushresult_.size() 到 offsets的vector
+      再创建过滤器，并且追加到 result_里
+
+    结果是： 创建的n个过滤器 都在result_里保存着，而每个过滤器的offset 保存在 filter_offsets_里
+        过滤器的第一个offset就是0
+  */
   filter_offsets_.push_back(result_.size());
   policy_->CreateFilter(&tmp_keys_[0], static_cast<int>(num_keys), &result_);
 

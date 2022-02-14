@@ -14,6 +14,7 @@ class MemTable;
 
 // WriteBatchInternal provides static methods for manipulating a
 // WriteBatch that we don't want in the public WriteBatch interface.
+// 辅助类：只是用于WriteBatch的操作，不希望暴露在整个全局区，使用类内static函数方法。一个学习的技巧；
 class WriteBatchInternal {
  public:
   // Return the number of entries in the batch.

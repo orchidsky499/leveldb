@@ -28,6 +28,7 @@ Block::Block(const BlockContents& contents)
       owned_(contents.heap_allocated) {
   if (size_ < sizeof(uint32_t)) {
     size_ = 0;  // Error marker
+    // todo 为什么这么写？
   } else {
     size_t max_restarts_allowed = (size_ - sizeof(uint32_t)) / sizeof(uint32_t);
     if (NumRestarts() > max_restarts_allowed) {

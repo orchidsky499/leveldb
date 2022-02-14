@@ -11,6 +11,7 @@ namespace leveldb {
 
 namespace {
 static uint32_t BloomHash(const Slice& key) {
+  // todo 这个地址是啥意思？为啥能够重复调用一个接口而产生多个哈希函数的效果？
   return Hash(key.data(), key.size(), 0xbc9f1d34);
 }
 
@@ -18,6 +19,7 @@ class BloomFilterPolicy : public FilterPolicy {
  public:
   explicit BloomFilterPolicy(int bits_per_key) : bits_per_key_(bits_per_key) {
     // We intentionally round down to reduce probing cost a little bit
+    // todo bits_per_key 是啥意思？每个key有多少bit？跟这个语义相关么？ m / n?
     k_ = static_cast<size_t>(bits_per_key * 0.69);  // 0.69 =~ ln(2)
     if (k_ < 1) k_ = 1;
     if (k_ > 30) k_ = 30;
@@ -25,6 +27,10 @@ class BloomFilterPolicy : public FilterPolicy {
 
   const char* Name() const override { return "leveldb.BuiltinBloomFilter2"; }
 
+// 输入key和key数量，返回一个布隆过滤器。 
+  // 本类并不拥有过滤器，只是一个 类似于工厂的东西，也正因如此才有一个NewBloomFilterPolicy方法，类似于工厂函数
+  // todo: 思考 为什么要有Slice，而不用string？为什么要用 Slice* 而不用 vector<slice> ? 
+  //      可能是觉得 string 和vector 实现太复杂，而这里仅仅只需要数组的随机访问功能，所以没用vector
   void CreateFilter(const Slice* keys, int n, std::string* dst) const override {
     // Compute bloom filter size (in both bits and bytes)
     size_t bits = n * bits_per_key_;
@@ -36,8 +42,13 @@ class BloomFilterPolicy : public FilterPolicy {
     size_t bytes = (bits + 7) / 8;
     bits = bytes * 8;
 
+    // 这么做的好处在于，给定任意string（可以是非空），在不修改原string情况下 新增一部分用于创建布隆过滤器
     const size_t init_size = dst->size();
     dst->resize(init_size + bytes, 0);
+
+    // 把 哈希函数个数 添加到 过滤器的尾部。因为k最大不超过64，所以一个字节 char 足以存放它
+    // 用于 判断是否 存在
+    // todo double-hashing 不太懂啥意思
     dst->push_back(static_cast<char>(k_));  // Remember # of probes in filter
     char* array = &(*dst)[init_size];
     for (int i = 0; i < n; i++) {

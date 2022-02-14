@@ -533,6 +533,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
     const Slice min_user_key = meta.smallest.user_key();
     const Slice max_user_key = meta.largest.user_key();
     if (base != nullptr) {
+      // 返回一个即将放入sstable的level。不一定是0，如果和level1没交集，会放入level1
       level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
     }
     edit->AddFile(level, meta.number, meta.file_size, meta.smallest,
@@ -596,6 +597,7 @@ void DBImpl::CompactRange(const Slice* begin, const Slice* end) {
   }
 }
 
+// tbwhy: 为什么还有test代码在这里？s
 void DBImpl::TEST_CompactRange(int level, const Slice* begin,
                                const Slice* end) {
   assert(level >= 0);
@@ -933,6 +935,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     }
 
     Slice key = input->key();
+    // 如果目前 compact 生成的文件，会导致接下来 level + 1 && level + 2 层 compact 压力过大，那么结束本次 compact.
     if (compact->compaction->ShouldStopBefore(key) &&
         compact->builder != nullptr) {
       status = FinishCompactionOutputFile(compact, input);
@@ -942,6 +945,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     }
 
     // Handle key/value, add to state, etc.
+    // 由于多次Put/Delete，有些key会出现多次，在compact时丢弃。策略如下
     bool drop = false;
     if (!ParseInternalKey(key, &ikey)) {
       // Do not hide error keys
@@ -986,6 +990,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
         (int)last_sequence_for_key, (int)compact->smallest_snapshot);
 #endif
 
+    // 如果drop = false，说明 key 需要保留，写入新的文件
     if (!drop) {
       // Open output file if necessary
       if (compact->builder == nullptr) {
@@ -1011,7 +1016,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     }
 
     input->Next();
-  }
+  }// end while 这里的while是用来和break配合使用的
 
   if (status.ok() && shutting_down_.load(std::memory_order_acquire)) {
     status = Status::IOError("Deleting DB during compaction");
@@ -1039,6 +1044,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   mutex_.Lock();
   stats_[compact->compaction->level() + 1].Add(stats);
 
+  // 将结果记录到 version / versionedit,  LogAndApply
   if (status.ok()) {
     status = InstallCompactionResults(compact);
   }
@@ -1189,6 +1195,7 @@ void DBImpl::ReleaseSnapshot(const Snapshot* snapshot) {
 }
 
 // Convenience methods
+// tbwhy 这里没太懂 ： 为啥派生类的接口再转调用一次基类接口？
 Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& val) {
   return DB::Put(o, key, val);
 }
@@ -1217,6 +1224,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
   uint64_t last_sequence = versions_->LastSequence();
   Writer* last_writer = &w;
   if (status.ok() && updates != nullptr) {  // nullptr batch is for compactions
+    // tbtodo 这里做所有writer的合并，具体细节和原因待细看
     WriteBatch* write_batch = BuildBatchGroup(&last_writer);
     WriteBatchInternal::SetSequence(write_batch, last_sequence + 1);
     last_sequence += WriteBatchInternal::Count(write_batch);

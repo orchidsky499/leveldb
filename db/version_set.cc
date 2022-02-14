@@ -470,6 +470,7 @@ bool Version::OverlapInLevel(int level, const Slice* smallest_user_key,
 int Version::PickLevelForMemTableOutput(const Slice& smallest_user_key,
                                         const Slice& largest_user_key) {
   int level = 0;
+  // 这里编码规范是不是得调一下：if overlap return level; xxx;
   if (!OverlapInLevel(0, &smallest_user_key, &largest_user_key)) {
     // Push to next level if there is no overlap in next level,
     // and the #bytes overlapping in the level after that are limited.
@@ -1253,6 +1254,7 @@ Compaction* VersionSet::PickCompaction() {
   Compaction* c;
   int level;
 
+  // 先确定第level层的输入文件
   // We prefer compactions triggered by too much data in a level over
   // the compactions triggered by seeks.
   const bool size_compaction = (current_->compaction_score_ >= 1);
@@ -1298,6 +1300,7 @@ Compaction* VersionSet::PickCompaction() {
     assert(!c->inputs_[0].empty());
   }
 
+  // 再确定level + 1层的输入文件
   SetupOtherInputs(c);
 
   return c;
@@ -1401,6 +1404,7 @@ void VersionSet::SetupOtherInputs(Compaction* c) {
   // changing the number of "level+1" files we pick up.
   if (!c->inputs_[1].empty()) {
     std::vector<FileMetaData*> expanded0;
+    
     current_->GetOverlappingInputs(level, &all_start, &all_limit, &expanded0);
     AddBoundaryInputs(icmp_, current_->files_[level], &expanded0);
     const int64_t inputs0_size = TotalFileSize(c->inputs_[0]);
@@ -1411,6 +1415,7 @@ void VersionSet::SetupOtherInputs(Compaction* c) {
             ExpandedCompactionByteSizeLimit(options_)) {
       InternalKey new_start, new_limit;
       GetRange(expanded0, &new_start, &new_limit);
+
       std::vector<FileMetaData*> expanded1;
       current_->GetOverlappingInputs(level + 1, &new_start, &new_limit,
                                      &expanded1);

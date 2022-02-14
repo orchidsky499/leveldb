@@ -44,8 +44,13 @@ class FilterBlockBuilder {
   const FilterPolicy* policy_;
   std::string keys_;             // Flattened key contents
   std::vector<size_t> start_;    // Starting index in keys_ of each key
+
+  // result_ 即整个FilterBlock，包括了所有FilterData和Filter offset
   std::string result_;           // Filter data computed so far
+
   std::vector<Slice> tmp_keys_;  // policy_->CreateFilter() argument
+
+  // 和results_配合使用
   std::vector<uint32_t> filter_offsets_;
 };
 
